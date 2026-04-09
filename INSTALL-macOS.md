@@ -2,12 +2,12 @@
 
 Este guia vale para o arquivo pronto:
 
-- `Clippa-mac-unsigned.zip`
+- `Clippa-mac-unsigned.dmg`
 
 ## Instalação
 
-1. Baixe `Clippa-mac-unsigned.zip`
-2. Dê duplo clique no zip para extrair
+1. Baixe `Clippa-mac-unsigned.dmg`
+2. Dê duplo clique no `.dmg`
 3. Arraste `Clippa.app` para `Applications`
 4. Abra a pasta `Applications`
 5. Clique com o botão direito em `Clippa.app`
@@ -15,6 +15,10 @@ Este guia vale para o arquivo pronto:
 7. Confirme o aviso do macOS
 
 Essa primeira abertura manual é esperada, porque a build pública atual não é notarizada pela Apple.
+
+## Se você preferir zip
+
+A release também inclui `Clippa-mac-unsigned.zip`. O fluxo funciona igual, mas o `.dmg` deixa a instalação mais direta.
 
 ## Se o macOS bloquear
 

@@ -15,11 +15,15 @@ Se você só quer baixar e usar no Mac:
 
 1. Abra a última release:
    `https://github.com/marcoraza/clippa/releases/latest`
-2. Baixe `Clippa-mac-unsigned.zip`
-3. Extraia o arquivo
+2. Baixe `Clippa-mac-unsigned.dmg`
+3. Abra o `.dmg`
 4. Arraste `Clippa.app` para `Applications`
 5. Clique com o botão direito no app e escolha `Open`
 6. Confirme o aviso do macOS
+
+Alternativa:
+
+- a release também inclui `Clippa-mac-unsigned.zip`
 
 Observação:
 
@@ -103,6 +107,19 @@ O build faz isso:
 - empacota o backend Flask dentro do app
 - inclui `ffmpeg` e `ffprobe`
 - gera `dist/Clippa.app`
+
+## Gerar um DMG pronto para distribuição
+
+Se você quiser gerar um instalador `.dmg` sem Apple Developer:
+
+```bash
+./scripts/release-macos-dmg.sh
+```
+
+Isso gera:
+
+- `dist/Clippa.app`
+- `dist/Clippa-mac-unsigned.dmg`
 
 ## Gerar um zip pronto para distribuição
 
