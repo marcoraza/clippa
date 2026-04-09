@@ -1,0 +1,16 @@
+venv/
+downloads/
+__pycache__/
+*.pyc
+assets/*.mov
+.DS_Store
+.env
+.env.local
+.env.production
+.env.development
+build/
+dist/
+logs/
+*.spec
+assets/icon-work/
+assets/clippa.iconset/

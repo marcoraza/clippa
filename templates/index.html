@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clippa</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --panel: #ffffff;
+      --line: #e5dfd4;
+      --text: #191919;
+      --muted: #736c62;
+      --accent: #ff6a2b;
+      --accent-hover: #eb5d21;
+      --success: #157254;
+      --error: #bc4252;
+      --shadow: 0 18px 50px rgba(22, 18, 12, 0.08);
+      --radius: 24px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 28px 16px 56px;
+    }
+
+    .shell {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 132px;
+      resize: none;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-size: 1rem;
+      line-height: 1.55;
+      padding: 18px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    textarea:focus {
+      border-color: rgba(255, 106, 43, 0.45);
+      box-shadow: 0 0 0 4px rgba(255, 106, 43, 0.1);
+    }
+
+    textarea::placeholder {
+      color: #999181;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+      margin-bottom: 18px;
+    }
+
+    .pill-group {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f8f6f1;
+    }
+
+    .pill {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .pill.active {
+      background: var(--text);
+      color: #fff;
+    }
+
+    .fetch-btn {
+      flex: 1;
+      border: none;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      padding: 14px 18px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    .fetch-btn:hover { background: var(--accent-hover); }
+    .fetch-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .platforms {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .platforms span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: #faf8f4;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+    }
+
+    .cards {
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .card {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fff;
+      padding: 14px;
+    }
+
+    .card-thumb {
+      width: 112px;
+      min-width: 112px;
+      height: 72px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #f1ece3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .card-thumb.loading {
+      background: linear-gradient(90deg, #ece7de 25%, #f5f1eb 50%, #ece7de 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite linear;
+    }
+
+    .no-thumb svg {
+      width: 26px;
+      height: 26px;
+      opacity: 0.55;
+    }
+
+    .card-body {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .card-title {
+      font-size: 0.98rem;
+      font-weight: 600;
+      line-height: 1.35;
+      margin-bottom: 4px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .card-meta,
+    .card-status,
+    .card-error-url {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .card-error-msg,
+    .card-status.error { color: var(--error); }
+    .card-status.downloading { color: var(--accent); }
+    .card-status.done,
+    .card-status.saved { color: var(--success); }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .card-dl-btn,
+    .q-chip,
+    .dl-all-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 9px 14px;
+      cursor: pointer;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+    }
+
+    .card-dl-btn,
+    .dl-all-btn {
+      background: var(--text);
+      color: #fff;
+    }
+
+    .card-dl-btn.done { background: var(--success); }
+    .card-dl-btn.error { background: var(--error); }
+
+    .q-chip {
+      background: #f6f3ed;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+
+    .q-chip.active {
+      background: #ece8df;
+      color: var(--text);
+      border-color: #d6cfbf;
+    }
+
+    .card.card-error {
+      border-color: rgba(188, 66, 82, 0.2);
+      background: #fff8f8;
+    }
+
+    .card-error-icon {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--error);
+    }
+
+    .card-error-icon svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .dl-all-bar {
+      margin-top: 6px;
+    }
+
+    .dl-all-btn {
+      width: 100%;
+      padding: 12px 14px;
+    }
+
+    .skeleton-line {
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ece7de 25%, #f5f1eb 50%, #ece7de 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite linear;
+      margin-bottom: 8px;
+    }
+
+    .skeleton-line.medium { width: 74%; }
+    .skeleton-line.short { width: 42%; }
+
+    .spin {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 640px) {
+      .controls {
+        flex-wrap: wrap;
+      }
+
+      .pill-group,
+      .fetch-btn {
+        width: 100%;
+      }
+
+      .card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .card-thumb {
+        width: 100%;
+        min-width: 0;
+        height: 176px;
+      }
+
+      .card-title {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="panel">
+      <textarea id="urls" placeholder="Paste a link..." rows="4"></textarea>
+
+      <div class="controls">
+        <div class="pill-group">
+          <button class="pill active" data-format="video" onclick="setFormat(this)">MP4</button>
+          <button class="pill" data-format="audio" onclick="setFormat(this)">MP3</button>
+        </div>
+        <button class="fetch-btn" id="goBtn" onclick="go()">Fetch</button>
+      </div>
+
+      <div class="platforms">
+        <span>YouTube</span>
+        <span>TikTok</span>
+        <span>Instagram</span>
+        <span>X</span>
+        <span>Reddit</span>
+        <span>Vimeo</span>
+        <span>SoundCloud</span>
+        <span>1000+ sources</span>
+      </div>
+    </div>
+
+    <div id="cards" class="cards"></div>
+  </div>
+
+  <script>
+    let currentFormat = 'video';
+    let cardData = [];
+
+    function setFormat(btn) {
+      document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFormat = btn.dataset.format;
+    }
+
+    function parseUrls(text) {
+      return [...new Set(text.split(/[\s,]+/).map(u => u.trim()).filter(u => u.startsWith('http')))];
+    }
+
+    function fmtDur(s) {
+      if (!s) return '';
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function friendlyError(err) {
+      if (err.includes('Unsupported URL')) return 'This URL is not supported';
+      if (err.includes('Video unavailable')) return 'Video is unavailable or private';
+      if (err.includes('Private video')) return 'This video is private';
+      if (err.includes('HTTP Error 403')) return 'Access denied by the platform';
+      if (err.includes('HTTP Error 404')) return 'Video not found';
+      if (err.includes('copyright')) return 'Video blocked due to copyright';
+      if (err.includes('geo')) return 'Video not available in your region';
+      if (err.includes('timed out') || err.includes('Timed out')) return 'Request timed out';
+      if (err.includes('network') || err.includes('Network')) return 'Network error';
+      return err.length > 80 ? err.slice(0, 80) + '...' : err;
+    }
+
+    document.getElementById('urls').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); }
+    });
+
+    async function go() {
+      const urls = parseUrls(document.getElementById('urls').value);
+      if (!urls.length) return;
+
+      const btn = document.getElementById('goBtn');
+      const container = document.getElementById('cards');
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+      container.innerHTML = '';
+      cardData = [];
+
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        const idx = cardData.length;
+        cardData.push({ url, status: 'loading' });
+        renderCard(idx);
+
+        try {
+          const res = await fetch('/api/info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          });
+          const data = await res.json();
+          if (data.error) {
+            cardData[idx] = { ...cardData[idx], status: 'info-error', error: data.error };
+          } else {
+            cardData[idx] = {
+              ...cardData[idx],
+              status: 'ready',
+              title: data.title || '',
+              thumbnail: data.thumbnail || '',
+              duration: data.duration,
+              uploader: data.uploader || '',
+              formats: data.formats || [],
+              selectedFormatId: data.formats?.[0]?.id || null,
+            };
+          }
+        } catch (err) {
+          cardData[idx] = { ...cardData[idx], status: 'info-error', error: err.message };
+        }
+        renderCard(idx);
+      }
+
+      if (cardData.filter(c => c.status === 'ready').length > 1) {
+        renderDownloadAll();
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Fetch';
+    }
+
+    function renderCard(idx) {
+      const c = cardData[idx];
+      let el = document.getElementById(`card-${idx}`);
+      if (!el) {
+        el = document.createElement('div');
+        el.id = `card-${idx}`;
+        el.className = 'card';
+        document.getElementById('cards').appendChild(el);
+      }
+
+      if (c.status === 'loading') {
+        el.className = 'card';
+        el.innerHTML = `
+          <div class="card-thumb loading"></div>
+          <div class="card-body">
+            <div class="skeleton-line medium"></div>
+            <div class="skeleton-line short"></div>
+          </div>
+        `;
+        return;
+      }
+
+      if (c.status === 'info-error') {
+        el.className = 'card card-error';
+        el.innerHTML = `
+          <div class="card-thumb">
+            <div class="card-error-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="card-title">Could not fetch video</div>
+            <div class="card-error-msg">${esc(friendlyError(c.error || ''))}</div>
+            <div class="card-error-url">${esc(c.url)}</div>
+          </div>
+        `;
+        return;
+      }
+
+      el.className = 'card';
+      const isAudio = currentFormat === 'audio';
+
+      let thumbHtml;
+      if (isAudio) {
+        thumbHtml = `<div class="no-thumb" style="color:var(--accent)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>`;
+      } else if (c.thumbnail) {
+        thumbHtml = `<img src="${c.thumbnail}" alt="">`;
+      } else {
+        thumbHtml = `<div class="no-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>`;
+      }
+
+      let qualityChips = '';
+      if (!isAudio && c.formats && c.formats.length > 1) {
+        qualityChips = c.formats.map(f =>
+          `<button class="q-chip${f.id === c.selectedFormatId ? ' active' : ''}" onclick="pickFormat(${idx}, '${f.id}')">${f.label}</button>`
+        ).join('');
+      }
+
+      let actionHtml = '';
+      if (c.status === 'ready') {
+        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Download</button>${qualityChips}`;
+      } else if (c.status === 'downloading') {
+        actionHtml = `<span class="card-status downloading"><span class="spin"></span> Downloading...</span>`;
+      } else if (c.status === 'done') {
+        const buttonLabel = c.savedPath ? 'Saved' : 'Save';
+        const statusClass = c.savedPath ? 'saved' : 'done';
+        const statusText = c.savedPath || c.filename || '';
+        actionHtml = `<button class="card-dl-btn done" onclick="saveCard(${idx})">${buttonLabel}</button>
+          <span class="card-status ${statusClass}" title="${esc(statusText)}">${esc(statusText)}</span>`;
+      } else if (c.status === 'error') {
+        actionHtml = `<button class="card-dl-btn error" onclick="dlCard(${idx})">Retry</button>
+          <span class="card-status error">${esc(friendlyError(c.error || 'Download failed'))}</span>`;
+      }
+
+      el.innerHTML = `
+        <div class="card-thumb">${thumbHtml}</div>
+        <div class="card-body">
+          <div class="card-title">${esc(c.title || 'Untitled')}</div>
+          <div class="card-meta">${esc(c.uploader)}${c.duration ? ' · ' + fmtDur(c.duration) : ''}</div>
+          <div class="card-actions">${actionHtml}</div>
+        </div>
+      `;
+    }
+
+    function renderDownloadAll() {
+      const existing = document.getElementById('dl-all-bar');
+      if (existing) existing.remove();
+
+      const bar = document.createElement('div');
+      bar.id = 'dl-all-bar';
+      bar.className = 'dl-all-bar';
+      bar.innerHTML = `<button class="dl-all-btn" onclick="dlAll()">Download All</button>`;
+      document.getElementById('cards').appendChild(bar);
+    }
+
+    function pickFormat(idx, formatId) {
+      cardData[idx].selectedFormatId = formatId;
+      renderCard(idx);
+    }
+
+    async function dlCard(idx) {
+      const c = cardData[idx];
+      c.status = 'downloading';
+      c.error = null;
+      renderCard(idx);
+
+      try {
+        const res = await fetch('/api/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: c.url,
+            format: currentFormat,
+            format_id: c.selectedFormatId,
+            title: c.title || '',
+          }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          c.status = 'error';
+          c.error = data.error;
+          renderCard(idx);
+          return;
+        }
+        c.jobId = data.job_id;
+        pollCard(idx);
+      } catch (err) {
+        c.status = 'error';
+        c.error = err.message;
+        renderCard(idx);
+      }
+    }
+
+    function pollCard(idx) {
+      const c = cardData[idx];
+      const iv = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/status/${c.jobId}`);
+          const data = await res.json();
+          if (data.status === 'done') {
+            clearInterval(iv);
+            c.status = 'done';
+            c.filename = data.filename;
+            renderCard(idx);
+            saveCard(idx);
+          } else if (data.status === 'error') {
+            clearInterval(iv);
+            c.status = 'error';
+            c.error = data.error;
+            renderCard(idx);
+          }
+        } catch {
+          clearInterval(iv);
+          c.status = 'error';
+          c.error = 'Lost connection to server';
+          renderCard(idx);
+        }
+      }, 1000);
+    }
+
+    async function saveCard(idx) {
+      const c = cardData[idx];
+      if (!c.jobId) return;
+
+      if (window.pywebview?.api?.save_download) {
+        try {
+          const result = await window.pywebview.api.save_download(c.jobId);
+          if (result?.saved) {
+            c.savedPath = result.path || c.filename || '';
+            renderCard(idx);
+          } else if (result?.error) {
+            c.status = 'error';
+            c.error = result.error;
+            renderCard(idx);
+          }
+          return;
+        } catch (err) {
+          c.status = 'error';
+          c.error = err.message || 'Could not save file';
+          renderCard(idx);
+          return;
+        }
+      }
+
+      const a = document.createElement('a');
+      a.href = `/api/file/${c.jobId}`;
+      a.download = c.filename || '';
+      a.click();
+    }
+
+    async function dlAll() {
+      const btn = document.querySelector('.dl-all-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Downloading...'; }
+
+      for (let i = 0; i < cardData.length; i++) {
+        if (cardData[i].status === 'ready') {
+          await dlCard(i);
+        }
+      }
+
+      if (btn) { btn.disabled = false; btn.textContent = 'Download All'; }
+    }
+  </script>
+</body>
+</html>
