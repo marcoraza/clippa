@@ -1,62 +1,60 @@
 # Clippa
 
-Clippa is a lightweight media downloader for YouTube, TikTok, Instagram, X, Reddit, Vimeo, SoundCloud, and many other sources supported by `yt-dlp`.
+Clippa é um downloader leve de mídia para YouTube, TikTok, Instagram, X, Reddit, Vimeo, SoundCloud e outras plataformas suportadas por `yt-dlp`.
 
-It runs in the browser or as a native macOS app.
+Ele pode rodar no navegador ou como app nativo de macOS.
 
 ![Python](https://img.shields.io/badge/python-3.8+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ![Clippa MP3 Mode](assets/preview-mp3.png)
 
-## Download
+## Download e Instalação
 
-If you just want the macOS app:
+Se você só quer baixar e usar no Mac:
 
-1. Open the latest release page:
+1. Abra a última release:
    `https://github.com/marcoraza/clippa/releases/latest`
-2. Download `Clippa-mac-unsigned.zip`
-3. Follow the install guide in [INSTALL-macOS.md](INSTALL-macOS.md)
+2. Baixe `Clippa-mac-unsigned.zip`
+3. Extraia o arquivo
+4. Arraste `Clippa.app` para `Applications`
+5. Clique com o botão direito no app e escolha `Open`
+6. Confirme o aviso do macOS
 
-Important:
+Observação:
 
-- the current public build is unsigned
-- macOS may block the first launch
-- the workaround is simple and documented below
+- a build pública atual é `unsigned`
+- na primeira abertura o macOS pode bloquear
+- isso é esperado, porque o app não está notarizado pela Apple
 
-## macOS Install, Step by Step
+Se o macOS continuar bloqueando:
 
-### Option 1, Download a prebuilt app
+1. Tente abrir o app uma vez
+2. Abra `System Settings`
+3. Vá em `Privacy & Security`
+4. Role até a seção de segurança
+5. Clique em `Open Anyway`
+6. Abra `Clippa.app` de novo
 
-1. Download `Clippa-mac-unsigned.zip` from the latest release
-2. Extract the zip
-3. Drag `Clippa.app` into `Applications`
-4. Right-click `Clippa.app`
-5. Click `Open`
-6. Confirm the macOS warning
+Guia detalhado: [INSTALL-macOS.md](INSTALL-macOS.md)
 
-After the first manual open, macOS usually stops asking again for that app.
+## Uso
 
-### If macOS still blocks it
+1. Cole um link
+2. Escolha `MP4` ou `MP3`
+3. Clique em `Fetch`
+4. Selecione a qualidade disponível
+5. Salve o arquivo
 
-1. Try opening the app once
-2. Open `System Settings`
-3. Go to `Privacy & Security`
-4. Scroll to the security section
-5. Click `Open Anyway`
-6. Open `Clippa.app` again
+## Rodar do código-fonte
 
-More detail is in [INSTALL-macOS.md](INSTALL-macOS.md).
-
-## Run From Source
-
-### Requirements
+### Requisitos
 
 - Python 3.8+
 - `ffmpeg`
 - `yt-dlp`
 
-macOS with Homebrew:
+macOS com Homebrew:
 
 ```bash
 brew install ffmpeg yt-dlp
@@ -69,7 +67,7 @@ sudo apt install ffmpeg
 pip install yt-dlp
 ```
 
-### Start the web app
+### Iniciar a versão web
 
 ```bash
 git clone https://github.com/marcoraza/clippa.git
@@ -77,19 +75,19 @@ cd clippa
 ./reclip.sh
 ```
 
-Open:
+Abra:
 
 - `http://localhost:8899`
 
-To expose it on your local network:
+Para expor na rede local:
 
 ```bash
 HOST=0.0.0.0 PORT=8899 ./reclip.sh
 ```
 
-## Build the macOS App
+## Gerar o app de macOS
 
-This project can package itself as a `.app`.
+O projeto consegue empacotar a si mesmo como `.app`.
 
 ```bash
 git clone https://github.com/marcoraza/clippa.git
@@ -100,41 +98,41 @@ venv/bin/python -m pip install -r requirements-desktop.txt
 open dist/Clippa.app
 ```
 
-What the build does:
+O build faz isso:
 
-- packages the Flask backend inside the app
-- bundles `ffmpeg` and `ffprobe`
-- creates `dist/Clippa.app`
+- empacota o backend Flask dentro do app
+- inclui `ffmpeg` e `ffprobe`
+- gera `dist/Clippa.app`
 
-## Create a Shareable macOS Zip
+## Gerar um zip pronto para distribuição
 
-If you want a ready-to-send build without Apple Developer signing:
+Se você quiser gerar uma build pronta para enviar, sem Apple Developer:
 
 ```bash
 ./scripts/release-macos-unsigned.sh
 ```
 
-This produces:
+Isso gera:
 
 - `dist/Clippa.app`
 - `dist/Clippa-mac-unsigned.zip`
 
-Note:
+Observação:
 
-- this build is usable
-- it is not notarized by Apple
-- first launch will require manual confirmation on another Mac
+- a build funciona normalmente
+- ela não é notarizada pela Apple
+- em outro Mac, a primeira abertura exige confirmação manual
 
-## Persistent Background Mode on macOS
+## Rodar em segundo plano no macOS
 
-If you want Clippa available after closing Terminal:
+Se você quiser deixar o Clippa disponível mesmo depois de fechar o Terminal:
 
 ```bash
 ./reclip.sh
 ./scripts/install-macos-service.sh
 ```
 
-Useful commands:
+Comandos úteis:
 
 ```bash
 launchctl print gui/$(id -u)/com.marko.clippa
@@ -143,9 +141,9 @@ tail -f logs/clippa.err.log
 ./scripts/uninstall-macos-service.sh
 ```
 
-## Supported Sources
+## Plataformas suportadas
 
-Clippa works with anything supported by `yt-dlp`, including:
+Clippa funciona com qualquer fonte suportada por `yt-dlp`, incluindo:
 
 - YouTube
 - TikTok
@@ -157,29 +155,21 @@ Clippa works with anything supported by `yt-dlp`, including:
 - SoundCloud
 - Dailymotion
 - LinkedIn
-- many more
+- muitas outras
 
-## Usage
+## Releases assinadas
 
-1. Paste one or more links
-2. Choose `MP4` or `MP3`
-3. Click `Fetch`
-4. Pick quality if available
-5. Download the result
-
-## Signed Releases
-
-If you have an Apple Developer account, this repo also includes signing and notarization scripts:
+Se você tiver conta Apple Developer, o repo também inclui scripts para assinatura e notarização:
 
 - `scripts/store-notary-credentials.sh`
 - `scripts/release-macos-app.sh`
 
-These are optional. The public release currently targets the unsigned flow for simple installation.
+Esses scripts são opcionais. A release pública atual usa o fluxo unsigned para simplificar a instalação.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. Veja [LICENSE](LICENSE).
 
-## Disclaimer
+## Aviso
 
-Use responsibly. Respect platform terms and content copyright.
+Use com responsabilidade. Respeite os termos das plataformas e os direitos autorais do conteúdo baixado.

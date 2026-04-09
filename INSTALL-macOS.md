@@ -1,36 +1,36 @@
-# Install Clippa on macOS
+# Instalar o Clippa no macOS
 
-This guide is for the prebuilt file:
+Este guia vale para o arquivo pronto:
 
 - `Clippa-mac-unsigned.zip`
 
-## First install
+## Instalação
 
-1. Download `Clippa-mac-unsigned.zip`
-2. Double-click the zip to extract it
-3. Drag `Clippa.app` to `Applications`
-4. Open `Applications`
-5. Right-click `Clippa.app`
-6. Click `Open`
-7. Confirm the warning dialog
+1. Baixe `Clippa-mac-unsigned.zip`
+2. Dê duplo clique no zip para extrair
+3. Arraste `Clippa.app` para `Applications`
+4. Abra a pasta `Applications`
+5. Clique com o botão direito em `Clippa.app`
+6. Escolha `Open`
+7. Confirme o aviso do macOS
 
-That first manual open is expected because the public build is not notarized by Apple.
+Essa primeira abertura manual é esperada, porque a build pública atual não é notarizada pela Apple.
 
-## If macOS blocks the app
+## Se o macOS bloquear
 
-1. Try to open `Clippa.app`
-2. Open `System Settings`
-3. Go to `Privacy & Security`
-4. Scroll down to the security section
-5. Click `Open Anyway`
-6. Try opening `Clippa.app` again
+1. Tente abrir `Clippa.app`
+2. Abra `System Settings`
+3. Vá em `Privacy & Security`
+4. Role até a seção de segurança
+5. Clique em `Open Anyway`
+6. Tente abrir o app novamente
 
-## What to expect
+## O que esperar
 
-- Clippa opens as a normal macOS app
-- downloaded files are saved through the native save dialog
-- temporary files are stored in `~/Downloads/Clippa`
+- o Clippa abre como um app normal de macOS
+- os arquivos são salvos pelo diálogo nativo de salvar
+- os temporários ficam em `~/Downloads/Clippa`
 
-## If you want a fully trusted installer later
+## Se você quiser uma instalação sem aviso no futuro
 
-This repo already includes the scripts for Apple code signing and notarization, but that requires an Apple Developer account.
+O repo já inclui scripts para code signing e notarização, mas isso exige uma conta Apple Developer.
