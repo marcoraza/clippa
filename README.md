@@ -1,183 +1,185 @@
 # Clippa
 
-Clippa is a self-hosted video and audio downloader with a clean web UI. Paste links from YouTube, TikTok, Instagram, Twitter/X, and 1000+ other sites and save them as MP4 or MP3.
+Clippa is a lightweight media downloader for YouTube, TikTok, Instagram, X, Reddit, Vimeo, SoundCloud, and many other sources supported by `yt-dlp`.
+
+It runs in the browser or as a native macOS app.
 
 ![Python](https://img.shields.io/badge/python-3.8+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-https://github.com/user-attachments/assets/419d3e50-c933-444b-8cab-a9724986ba05
-
 ![Clippa MP3 Mode](assets/preview-mp3.png)
 
-## Features
+## Download
 
-- Download videos from 1000+ supported sites (via [yt-dlp](https://github.com/yt-dlp/yt-dlp))
-- MP4 video or MP3 audio extraction
-- Quality/resolution picker
-- Bulk downloads — paste multiple URLs at once
-- Automatic URL deduplication
-- Clean, responsive UI — no frameworks, no build step
-- Single Python file backend (~150 lines)
+If you just want the macOS app:
 
-## Quick Start
+1. Open the latest release page:
+   `https://github.com/marcoraza/clippa/releases/latest`
+2. Download `Clippa-mac-unsigned.zip`
+3. Follow the install guide in [INSTALL-macOS.md](INSTALL-macOS.md)
+
+Important:
+
+- the current public build is unsigned
+- macOS may block the first launch
+- the workaround is simple and documented below
+
+## macOS Install, Step by Step
+
+### Option 1, Download a prebuilt app
+
+1. Download `Clippa-mac-unsigned.zip` from the latest release
+2. Extract the zip
+3. Drag `Clippa.app` into `Applications`
+4. Right-click `Clippa.app`
+5. Click `Open`
+6. Confirm the macOS warning
+
+After the first manual open, macOS usually stops asking again for that app.
+
+### If macOS still blocks it
+
+1. Try opening the app once
+2. Open `System Settings`
+3. Go to `Privacy & Security`
+4. Scroll to the security section
+5. Click `Open Anyway`
+6. Open `Clippa.app` again
+
+More detail is in [INSTALL-macOS.md](INSTALL-macOS.md).
+
+## Run From Source
+
+### Requirements
+
+- Python 3.8+
+- `ffmpeg`
+- `yt-dlp`
+
+macOS with Homebrew:
 
 ```bash
-brew install yt-dlp ffmpeg    # or apt install ffmpeg && pip install yt-dlp
+brew install ffmpeg yt-dlp
+```
+
+Linux:
+
+```bash
+sudo apt install ffmpeg
+pip install yt-dlp
+```
+
+### Start the web app
+
+```bash
 git clone https://github.com/marcoraza/clippa.git
 cd clippa
 ./reclip.sh
 ```
 
-Open **http://localhost:8899**.
+Open:
 
-To listen on your whole local network instead of only `localhost`:
+- `http://localhost:8899`
+
+To expose it on your local network:
 
 ```bash
 HOST=0.0.0.0 PORT=8899 ./reclip.sh
 ```
 
-Or with Docker:
+## Build the macOS App
+
+This project can package itself as a `.app`.
 
 ```bash
-docker build -t clippa . && docker run -p 8899:8899 clippa
-```
-
-## Desktop App For macOS
-
-You can now run Clippa as a native Mac window without opening a browser tab:
-
-```bash
+git clone https://github.com/marcoraza/clippa.git
 cd clippa
+./reclip.sh
 venv/bin/python -m pip install -r requirements-desktop.txt
-venv/bin/python desktop.py
-```
-
-To build a `.app` bundle:
-
-```bash
-chmod +x scripts/build-macos-app.sh
 ./scripts/build-macos-app.sh
 open dist/Clippa.app
 ```
 
-Notes:
+What the build does:
 
-- The desktop build still uses the same Flask backend internally
-- Finished downloads are saved through the native macOS save dialog
-- When bundled, temporary download files live in `~/Downloads/Clippa`
-- `ffmpeg` and `ffprobe` are copied into the app bundle during the build
+- packages the Flask backend inside the app
+- bundles `ffmpeg` and `ffprobe`
+- creates `dist/Clippa.app`
 
-## Signed Release For Other Macs
+## Create a Shareable macOS Zip
 
-To distribute without Gatekeeper warnings on other machines, you need:
-
-- an Apple Developer membership
-- a `Developer ID Application` certificate installed in Keychain
-- a saved `notarytool` keychain profile
-
-Save notary credentials once:
+If you want a ready-to-send build without Apple Developer signing:
 
 ```bash
-export APPLE_NOTARY_PROFILE="clippa-notary"
-export APPLE_ID="your-apple-id@example.com"
-export APPLE_TEAM_ID="TEAMID1234"
-export APPLE_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
-chmod +x scripts/store-notary-credentials.sh
-./scripts/store-notary-credentials.sh
-```
-
-Build, sign, notarize, and produce a distributable zip:
-
-```bash
-export APPLE_SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID1234)"
-export APPLE_NOTARY_PROFILE="clippa-notary"
-chmod +x scripts/release-macos-app.sh
-./scripts/release-macos-app.sh
-```
-
-Final release artifact:
-
-- `dist/Clippa.app`
-- `dist/Clippa-mac.zip`
-
-If `security find-identity -v -p codesigning` returns `0 valid identities found`, this Mac does not yet have the signing certificate needed for a fully trusted installer.
-
-## Unsigned Release For Immediate Use
-
-If you just want a working build now, without Apple Developer:
-
-```bash
-chmod +x scripts/release-macos-unsigned.sh
 ./scripts/release-macos-unsigned.sh
 ```
 
-Artifacts:
+This produces:
 
 - `dist/Clippa.app`
 - `dist/Clippa-mac-unsigned.zip`
 
-Install instructions for another Mac are in `INSTALL-macOS.md`.
+Note:
 
-## Usage
+- this build is usable
+- it is not notarized by Apple
+- first launch will require manual confirmation on another Mac
 
-1. Paste one or more video URLs into the input box
-2. Choose **MP4** (video) or **MP3** (audio)
-3. Click **Fetch** to load video info and thumbnails
-4. Select quality/resolution if available
-5. Click **Download** on individual videos, or **Download All**
+## Persistent Background Mode on macOS
 
-## Run Persistently On macOS
-
-If you want Clippa to stay up after closing Terminal, this repo includes a `launchd` service definition for macOS.
-
-1. Start it once manually and confirm dependencies are installed:
+If you want Clippa available after closing Terminal:
 
 ```bash
-cd clippa
 ./reclip.sh
-```
-
-2. Install the LaunchAgent:
-
-```bash
-chmod +x scripts/install-macos-service.sh scripts/uninstall-macos-service.sh
 ./scripts/install-macos-service.sh
 ```
 
-3. Access it from:
-
-- `http://localhost:8899` on the same Mac
-- `http://YOUR-LAN-IP:8899` from another device on the same network
-
 Useful commands:
 
-`launchctl print gui/$(id -u)/com.marko.clippa`
+```bash
+launchctl print gui/$(id -u)/com.marko.clippa
+tail -f logs/clippa.out.log
+tail -f logs/clippa.err.log
+./scripts/uninstall-macos-service.sh
+```
 
-`tail -f logs/clippa.out.log`
+## Supported Sources
 
-`tail -f logs/clippa.err.log`
+Clippa works with anything supported by `yt-dlp`, including:
 
-`./scripts/uninstall-macos-service.sh`
+- YouTube
+- TikTok
+- Instagram
+- X / Twitter
+- Reddit
+- Vimeo
+- Twitch
+- SoundCloud
+- Dailymotion
+- LinkedIn
+- many more
 
-This exposes Clippa to your local network, not the public internet. If you want internet access, put it behind a reverse proxy or tunnel and add authentication.
+## Usage
 
-## Supported Sites
+1. Paste one or more links
+2. Choose `MP4` or `MP3`
+3. Click `Fetch`
+4. Pick quality if available
+5. Download the result
 
-Anything [yt-dlp supports](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), including:
+## Signed Releases
 
-YouTube, TikTok, Instagram, Twitter/X, Reddit, Facebook, Vimeo, Twitch, Dailymotion, SoundCloud, Loom, Streamable, Pinterest, Tumblr, Threads, LinkedIn, and many more.
+If you have an Apple Developer account, this repo also includes signing and notarization scripts:
 
-## Stack
+- `scripts/store-notary-credentials.sh`
+- `scripts/release-macos-app.sh`
 
-- **Backend:** Python + Flask (~150 lines)
-- **Frontend:** Vanilla HTML/CSS/JS (single file, no build step)
-- **Download engine:** [yt-dlp](https://github.com/yt-dlp/yt-dlp) + [ffmpeg](https://ffmpeg.org/)
-- **Dependencies:** 2 (Flask, yt-dlp)
-
-## Disclaimer
-
-This tool is intended for personal use only. Please respect copyright laws and the terms of service of the platforms you download from. The developers are not responsible for any misuse of this tool.
+These are optional. The public release currently targets the unsigned flow for simple installation.
 
 ## License
 
-[MIT](LICENSE)
+MIT. See [LICENSE](LICENSE).
+
+## Disclaimer
+
+Use responsibly. Respect platform terms and content copyright.
