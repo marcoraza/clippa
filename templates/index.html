@@ -924,28 +924,48 @@
       });
     }
 
+    async function waitForPywebview(timeout = 5000) {
+      if (window.pywebview?.api?.save_download) return true;
+      return new Promise(resolve => {
+        const start = Date.now();
+        const check = () => {
+          if (window.pywebview?.api?.save_download) return resolve(true);
+          if (Date.now() - start > timeout) return resolve(false);
+          setTimeout(check, 100);
+        };
+        window.addEventListener('pywebviewready', () => resolve(true), { once: true });
+        check();
+      });
+    }
+
     async function saveCard(idx) {
       const c = cardData[idx];
       if (!c.jobId) return;
 
-      if (window.pywebview?.api?.save_download) {
-        try {
-          const result = await window.pywebview.api.save_download(c.jobId);
-          if (result?.saved) {
-            c.savedPath = result.path || c.filename || '';
-            renderCard(idx);
-          } else if (result?.error) {
+      if (window.pywebview) {
+        const ready = await waitForPywebview();
+        if (ready) {
+          try {
+            const result = await window.pywebview.api.save_download(c.jobId);
+            if (result?.saved) {
+              c.savedPath = result.path || c.filename || '';
+              renderCard(idx);
+            } else if (result?.cancelled) {
+              return;
+            } else if (result?.error) {
+              c.status = 'error';
+              c.error = result.error;
+              renderCard(idx);
+            }
+            return;
+          } catch (err) {
             c.status = 'error';
-            c.error = result.error;
+            c.error = err.message || 'Não foi possível salvar o arquivo';
             renderCard(idx);
+            return;
           }
-          return;
-        } catch (err) {
-          c.status = 'error';
-          c.error = err.message || 'Não foi possível salvar o arquivo';
-          renderCard(idx);
-          return;
         }
+        return;
       }
 
       const a = document.createElement('a');
