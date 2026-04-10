@@ -7,7 +7,7 @@
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #0a0a0f;
@@ -30,6 +30,8 @@
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    *:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+    *:focus:not(:focus-visible) { outline: none; }
 
     body {
       min-height: 100vh;
@@ -80,27 +82,25 @@
       gap: 28px;
     }
 
-    /* Brand */
+    /* Brand lockup */
     .brand {
-      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      flex-shrink: 0;
     }
 
     .brand-name {
       font-family: var(--font-mono);
-      font-size: 0.8rem;
+      font-size: 0.95rem;
       font-weight: 700;
-      letter-spacing: 0.25em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.5);
-    }
-
-    .brand-sub {
-      font-family: var(--font-mono);
-      font-size: 0.6rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--text-ghost);
-      margin-top: 4px;
+      color: rgba(255,255,255,0.6);
     }
 
     /* Input bar */
@@ -331,10 +331,27 @@
       background: rgba(255,255,255,0.03);
     }
 
+    .no-thumb {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-ghost);
+    }
+
+    .no-thumb.audio {
+      color: var(--accent-solid);
+    }
+
     .no-thumb svg {
       width: 22px;
       height: 22px;
       opacity: 0.3;
+    }
+
+    .no-thumb.audio svg {
+      opacity: 1;
     }
 
     .card-body {
@@ -398,8 +415,8 @@
     }
 
     .card-dl-btn:hover { opacity: 0.9; }
-    .card-dl-btn.done { background: var(--success); color: #0a0a0f; }
-    .card-dl-btn.error { background: var(--error); color: #0a0a0f; }
+    .card-dl-btn.done { background: var(--success); color: var(--bg); }
+    .card-dl-btn.error { background: var(--error); color: var(--bg); }
 
     .q-chip {
       background: rgba(255,255,255,0.04);
@@ -479,6 +496,14 @@
       to { transform: rotate(360deg); }
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
     @media (max-width: 640px) {
       .shell {
         padding: 24px 16px;
@@ -551,31 +576,41 @@
 
   <div class="shell">
     <div class="brand">
+      <svg class="brand-icon" width="28" height="28" viewBox="280 140 480 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="brand-wire" x1="380" y1="210" x2="535" y2="810" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#f97316"/>
+            <stop offset="1" stop-color="#ec4899"/>
+          </linearGradient>
+        </defs>
+        <path d="M380 810 L380 360 C380 242 440 210 512 210 C584 210 644 242 644 360 L644 650 C644 730 600 775 535 775 C470 775 430 730 430 650 L430 420"
+              stroke="url(#brand-wire)" stroke-width="72" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <div class="brand-name">Clippa</div>
     </div>
 
     <div class="input-bar" id="inputBar">
       <div class="input-row">
-        <textarea id="urls" placeholder="Cole um link..." rows="1"></textarea>
+        <textarea id="urls" placeholder="Cole um link..." rows="1" aria-label="URLs para download" autocomplete="off" spellcheck="false"></textarea>
         <div class="inline-controls">
-          <div class="format-toggle">
-            <button class="format-btn active" data-format="video" onclick="setFormat(this)">MP4</button>
-            <button class="format-btn" data-format="audio" onclick="setFormat(this)">MP3</button>
+          <div class="format-toggle" role="group" aria-label="Formato">
+            <button class="format-btn active" data-format="video" aria-pressed="true" onclick="setFormat(this)">MP4</button>
+            <button class="format-btn" data-format="audio" aria-pressed="false" onclick="setFormat(this)">MP3</button>
           </div>
           <button class="fetch-btn" id="goBtn" onclick="go()">Download</button>
         </div>
       </div>
       <div class="expand-footer">
-        <div class="format-toggle">
-          <button class="format-btn active" data-format="video" onclick="setFormat(this)">MP4</button>
-          <button class="format-btn" data-format="audio" onclick="setFormat(this)">MP3</button>
+        <div class="format-toggle" role="group" aria-label="Formato">
+          <button class="format-btn active" data-format="video" aria-pressed="true" onclick="setFormat(this)">MP4</button>
+          <button class="format-btn" data-format="audio" aria-pressed="false" onclick="setFormat(this)">MP3</button>
         </div>
         <span class="link-count" id="linkCount"></span>
         <button class="fetch-btn" id="goBtnExpanded" onclick="go()">Download</button>
       </div>
     </div>
 
-    <div class="platforms">
+    <div class="platforms" aria-hidden="true">
       <span>YouTube</span>
       <span>TikTok</span>
       <span>Instagram</span>
@@ -588,7 +623,7 @@
       <span>Pinterest</span>
     </div>
 
-    <div class="hint"><kbd>Enter</kbd> buscar &nbsp; <kbd>Shift+Enter</kbd> nova linha</div>
+    <div class="hint" aria-hidden="true"><kbd>Enter</kbd> buscar &nbsp; <kbd>Shift+Enter</kbd> nova linha</div>
 
     <div id="cards" class="cards"></div>
   </div>
@@ -600,8 +635,14 @@
     const inputBar = document.getElementById('inputBar');
 
     function setFormat(btn) {
-      document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll(`.format-btn[data-format="${btn.dataset.format}"]`).forEach(b => b.classList.add('active'));
+      document.querySelectorAll('.format-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      });
+      document.querySelectorAll(`.format-btn[data-format="${btn.dataset.format}"]`).forEach(b => {
+        b.classList.add('active');
+        b.setAttribute('aria-pressed', 'true');
+      });
       currentFormat = btn.dataset.format;
       cardData.forEach((c, i) => { if (c.status === 'ready') renderCard(i); });
     }
@@ -757,9 +798,9 @@
 
       let thumbHtml;
       if (isAudio) {
-        thumbHtml = `<div class="no-thumb" style="color:var(--accent-solid)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>`;
+        thumbHtml = `<div class="no-thumb audio"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>`;
       } else if (c.thumbnail) {
-        thumbHtml = `<img src="${c.thumbnail}" alt="">`;
+        thumbHtml = `<img src="${c.thumbnail}" alt="${esc(c.title || 'Thumbnail do vídeo')}">`;
       } else {
         thumbHtml = `<div class="no-thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div>`;
       }
