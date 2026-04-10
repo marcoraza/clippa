@@ -1,12 +1,10 @@
-import shutil
 import socket
 import threading
-from pathlib import Path
 
 import webview
 from werkzeug.serving import make_server
 
-from app import app, get_job_file
+from app import app
 
 
 def get_free_port():
@@ -35,49 +33,17 @@ class EmbeddedServer:
         self._thread.join(timeout=3)
 
 
-class DesktopApi:
-    def __init__(self):
-        self.window = None
-
-    def attach_window(self, window):
-        self.window = window
-
-    def auto_save(self, job_id):
-        payload = get_job_file(job_id)
-        if not payload:
-            return {"saved": False, "error": "Arquivo não encontrado"}
-
-        downloads = Path.home() / "Downloads"
-        downloads.mkdir(exist_ok=True)
-        target = downloads / payload["filename"]
-
-        # Avoid overwriting: append (1), (2), etc.
-        if target.exists():
-            stem = target.stem
-            suffix = target.suffix
-            n = 1
-            while target.exists():
-                target = downloads / f"{stem} ({n}){suffix}"
-                n += 1
-
-        shutil.copy2(payload["file"], target)
-        return {"saved": True, "path": str(target)}
-
-
 def main():
     server = EmbeddedServer(app)
     server.start()
 
-    api = DesktopApi()
     window = webview.create_window(
         "Clippa",
         server.url,
         width=1240,
         height=860,
         min_size=(980, 720),
-        js_api=api,
     )
-    api.attach_window(window)
     window.events.closed += server.stop
 
     webview.start()

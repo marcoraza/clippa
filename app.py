@@ -4,6 +4,7 @@ import sys
 import time
 import uuid
 import glob
+import shutil
 import threading
 from pathlib import Path
 from urllib.parse import urlparse
@@ -131,6 +132,23 @@ def build_ydl_options(timeout_seconds=None):
     return options
 
 
+def copy_to_downloads(src, filename):
+    downloads = Path.home() / "Downloads"
+    target = downloads / filename
+    if target.exists():
+        stem = target.stem
+        suffix = target.suffix
+        n = 1
+        while target.exists():
+            target = downloads / f"{stem} ({n}){suffix}"
+            n += 1
+    try:
+        shutil.copy2(src, target)
+        return str(target)
+    except OSError:
+        return None
+
+
 def run_download(job_id, url, format_choice, format_id):
     job = jobs[job_id]
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
@@ -192,7 +210,6 @@ def run_download(job_id, url, format_choice, format_id):
         job["file"] = chosen
         ext = os.path.splitext(chosen)[1]
         title = job.get("title", "").strip()
-        # Sanitize title for filename
         if title:
             safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()
             if len(safe_title) > 80:
@@ -200,6 +217,10 @@ def run_download(job_id, url, format_choice, format_id):
             job["filename"] = f"{safe_title}{ext}" if safe_title else os.path.basename(chosen)
         else:
             job["filename"] = os.path.basename(chosen)
+
+        saved = copy_to_downloads(chosen, job["filename"])
+        if saved:
+            job["saved_path"] = saved
     except CancelledError:
         job["status"] = "cancelled"
         job["error"] = "Download cancelado"
@@ -330,6 +351,7 @@ def check_status(job_id):
         "filename": job.get("filename"),
         "progress": job.get("progress", 0),
         "phase": job.get("progress_phase", "downloading"),
+        "saved_path": job.get("saved_path"),
     })
 
 

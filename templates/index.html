@@ -415,8 +415,16 @@
     }
 
     .card-dl-btn:hover { opacity: 0.9; }
-    .card-dl-btn.done { background: var(--success); color: var(--bg); }
     .card-dl-btn.error { background: var(--error); color: var(--bg); }
+
+    .done-quiet {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-ghost);
+      font-size: 0.75rem;
+    }
+    .done-quiet svg { color: var(--success); flex-shrink: 0; }
 
     .q-chip {
       background: rgba(255,255,255,0.04);
@@ -819,9 +827,10 @@
         const pct = c.progress ? ` ${c.progress}%` : '';
         actionHtml = `<span class="card-status downloading"><span class="spin"></span> Baixando...${pct}</span>`;
       } else if (c.status === 'done') {
-        const statusText = c.savedPath || c.filename || '';
-        actionHtml = `<span class="card-dl-btn done">Salvo</span>
-          <span class="card-status saved" title="${esc(statusText)}">${esc(statusText)}</span>`;
+        const name = c.filename || '';
+        actionHtml = `<span class="card-status done-quiet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+          ${esc(name)}</span>`;
       } else if (c.status === 'error') {
         actionHtml = `<button class="card-dl-btn error" onclick="dlCard(${idx})">Tentar de novo</button>
           <span class="card-status error">${esc(friendlyError(c.error || 'Falha no download'))}</span>`;
@@ -898,8 +907,8 @@
               clearInterval(iv);
               c.status = 'done';
               c.filename = data.filename;
+              c.savedPath = data.saved_path || '';
               renderCard(idx);
-              saveCard(idx);
               resolve();
             } else if (data.status === 'error') {
               clearInterval(iv);
@@ -922,46 +931,9 @@
       });
     }
 
-    async function waitForPywebview(timeout = 5000) {
-      if (window.pywebview?.api?.auto_save) return true;
-      return new Promise(resolve => {
-        const start = Date.now();
-        const check = () => {
-          if (window.pywebview?.api?.auto_save) return resolve(true);
-          if (Date.now() - start > timeout) return resolve(false);
-          setTimeout(check, 100);
-        };
-        window.addEventListener('pywebviewready', () => resolve(true), { once: true });
-        check();
-      });
-    }
-
-    async function saveCard(idx) {
+    function triggerBrowserDownload(idx) {
       const c = cardData[idx];
-      if (!c.jobId) return;
-
-      if (window.pywebview) {
-        const ready = await waitForPywebview();
-        if (ready) {
-          try {
-            const result = await window.pywebview.api.auto_save(c.jobId);
-            if (result?.saved) {
-              c.savedPath = result.path || c.filename || '';
-              renderCard(idx);
-            } else if (result?.error) {
-              c.status = 'error';
-              c.error = result.error;
-              renderCard(idx);
-            }
-          } catch (err) {
-            c.status = 'error';
-            c.error = err.message || 'Falha ao salvar';
-            renderCard(idx);
-          }
-        }
-        return;
-      }
-
+      if (!c.jobId || window.pywebview) return;
       const a = document.createElement('a');
       a.href = `/api/file/${c.jobId}`;
       a.download = c.filename || '';
