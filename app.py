@@ -172,11 +172,19 @@ def run_download(job_id, url, format_choice, format_id):
         ydl_options.update({
             "format": f"{format_id}+bestaudio/best",
             "merge_output_format": "mp4",
+            "postprocessors": [{
+                "key": "FFmpegVideoConvertor",
+                "preferedformat": "mp4",
+            }],
         })
     else:
         ydl_options.update({
-            "format": "bestvideo+bestaudio/best",
+            "format": "bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best",
             "merge_output_format": "mp4",
+            "postprocessors": [{
+                "key": "FFmpegVideoConvertor",
+                "preferedformat": "mp4",
+            }],
         })
 
     try:
@@ -260,13 +268,18 @@ def get_info():
         with YoutubeDL(ydl_options) as ydl:
             info = ydl.extract_info(url, download=False)
 
-        # Build quality options — keep best format per resolution
+        # Build quality options — prefer h264 per resolution (QuickTime-compatible)
         best_by_height = {}
         for f in info.get("formats", []):
             height = f.get("height")
-            if height and f.get("vcodec", "none") != "none":
-                tbr = f.get("tbr") or 0
-                if height not in best_by_height or tbr > (best_by_height[height].get("tbr") or 0):
+            vcodec = f.get("vcodec", "none")
+            if height and vcodec != "none":
+                existing = best_by_height.get(height)
+                is_h264 = vcodec.startswith("avc")
+                existing_h264 = existing and existing.get("vcodec", "").startswith("avc")
+                # Prefer h264 over other codecs; within same codec family, prefer higher bitrate
+                if not existing or (is_h264 and not existing_h264) or \
+                   (is_h264 == existing_h264 and (f.get("tbr") or 0) > (existing.get("tbr") or 0)):
                     best_by_height[height] = f
 
         formats = []
