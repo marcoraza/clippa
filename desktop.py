@@ -42,24 +42,24 @@ class DesktopApi:
     def attach_window(self, window):
         self.window = window
 
-    def save_download(self, job_id):
+    def auto_save(self, job_id):
         payload = get_job_file(job_id)
         if not payload:
             return {"saved": False, "error": "Arquivo não encontrado"}
 
-        if self.window is None:
-            return {"saved": False, "error": "Janela desktop indisponível"}
+        downloads = Path.home() / "Downloads"
+        downloads.mkdir(exist_ok=True)
+        target = downloads / payload["filename"]
 
-        destination = self.window.create_file_dialog(
-            webview.SAVE_DIALOG,
-            directory=str(Path.home() / "Downloads"),
-            save_filename=payload["filename"],
-        )
+        # Avoid overwriting: append (1), (2), etc.
+        if target.exists():
+            stem = target.stem
+            suffix = target.suffix
+            n = 1
+            while target.exists():
+                target = downloads / f"{stem} ({n}){suffix}"
+                n += 1
 
-        if not destination:
-            return {"saved": False, "cancelled": True}
-
-        target = Path(destination[0] if isinstance(destination, (list, tuple)) else destination)
         shutil.copy2(payload["file"], target)
         return {"saved": True, "path": str(target)}
 

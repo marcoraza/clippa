@@ -819,11 +819,9 @@
         const pct = c.progress ? ` ${c.progress}%` : '';
         actionHtml = `<span class="card-status downloading"><span class="spin"></span> Baixando...${pct}</span>`;
       } else if (c.status === 'done') {
-        const buttonLabel = c.savedPath ? 'Salvo' : 'Salvar';
-        const statusClass = c.savedPath ? 'saved' : 'done';
         const statusText = c.savedPath || c.filename || '';
-        actionHtml = `<button class="card-dl-btn done" onclick="saveCard(${idx})">${buttonLabel}</button>
-          <span class="card-status ${statusClass}" title="${esc(statusText)}">${esc(statusText)}</span>`;
+        actionHtml = `<span class="card-dl-btn done">Salvo</span>
+          <span class="card-status saved" title="${esc(statusText)}">${esc(statusText)}</span>`;
       } else if (c.status === 'error') {
         actionHtml = `<button class="card-dl-btn error" onclick="dlCard(${idx})">Tentar de novo</button>
           <span class="card-status error">${esc(friendlyError(c.error || 'Falha no download'))}</span>`;
@@ -925,11 +923,11 @@
     }
 
     async function waitForPywebview(timeout = 5000) {
-      if (window.pywebview?.api?.save_download) return true;
+      if (window.pywebview?.api?.auto_save) return true;
       return new Promise(resolve => {
         const start = Date.now();
         const check = () => {
-          if (window.pywebview?.api?.save_download) return resolve(true);
+          if (window.pywebview?.api?.auto_save) return resolve(true);
           if (Date.now() - start > timeout) return resolve(false);
           setTimeout(check, 100);
         };
@@ -946,23 +944,19 @@
         const ready = await waitForPywebview();
         if (ready) {
           try {
-            const result = await window.pywebview.api.save_download(c.jobId);
+            const result = await window.pywebview.api.auto_save(c.jobId);
             if (result?.saved) {
               c.savedPath = result.path || c.filename || '';
               renderCard(idx);
-            } else if (result?.cancelled) {
-              return;
             } else if (result?.error) {
               c.status = 'error';
               c.error = result.error;
               renderCard(idx);
             }
-            return;
           } catch (err) {
             c.status = 'error';
-            c.error = err.message || 'Não foi possível salvar o arquivo';
+            c.error = err.message || 'Falha ao salvar';
             renderCard(idx);
-            return;
           }
         }
         return;
