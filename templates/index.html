@@ -637,6 +637,7 @@
   </div>
 
   <script>
+    const DESKTOP_MODE = {{ 'true' if desktop else 'false' }};
     let currentFormat = 'video';
     let cardData = [];
     const urlsEl = document.getElementById('urls');
@@ -909,6 +910,7 @@
               c.filename = data.filename;
               c.savedPath = data.saved_path || '';
               renderCard(idx);
+              if (!DESKTOP_MODE) triggerBrowserDownload(idx);
               resolve();
             } else if (data.status === 'error') {
               clearInterval(iv);
@@ -933,7 +935,7 @@
 
     function triggerBrowserDownload(idx) {
       const c = cardData[idx];
-      if (!c.jobId || window.pywebview) return;
+      if (!c.jobId) return;
       const a = document.createElement('a');
       a.href = `/api/file/${c.jobId}`;
       a.download = c.filename || '';

@@ -6,6 +6,7 @@ import uuid
 import glob
 import shutil
 import threading
+from collections import defaultdict
 from pathlib import Path
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, send_file, render_template
@@ -47,6 +48,7 @@ RESOURCE_DIR = get_resource_dir()
 DOWNLOAD_DIR = str(get_download_dir())
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 FFMPEG_LOCATION = str(RESOURCE_DIR / "bin") if (RESOURCE_DIR / "bin").is_dir() else None
+DESKTOP_MODE = getattr(sys, "frozen", False)
 
 app = Flask(
     __name__,
@@ -56,7 +58,26 @@ app = Flask(
 
 jobs = {}
 jobs_lock = threading.Lock()
-JOB_TTL = 3600
+JOB_TTL = 3600 if DESKTOP_MODE else 600
+
+# Rate limiting (web mode only)
+_rate_hits = defaultdict(list)
+_rate_lock = threading.Lock()
+RATE_LIMIT = 20  # requests per window
+RATE_WINDOW = 3600  # 1 hour
+
+
+def check_rate_limit(ip):
+    if DESKTOP_MODE:
+        return True
+    now = time.time()
+    with _rate_lock:
+        hits = _rate_hits[ip]
+        _rate_hits[ip] = [t for t in hits if now - t < RATE_WINDOW]
+        if len(_rate_hits[ip]) >= RATE_LIMIT:
+            return False
+        _rate_hits[ip].append(now)
+        return True
 
 
 def cleanup_expired_jobs():
@@ -226,9 +247,10 @@ def run_download(job_id, url, format_choice, format_id):
         else:
             job["filename"] = os.path.basename(chosen)
 
-        saved = copy_to_downloads(chosen, job["filename"])
-        if saved:
-            job["saved_path"] = saved
+        if DESKTOP_MODE:
+            saved = copy_to_downloads(chosen, job["filename"])
+            if saved:
+                job["saved_path"] = saved
     except CancelledError:
         job["status"] = "cancelled"
         job["error"] = "Download cancelado"
@@ -247,11 +269,14 @@ def run_download(job_id, url, format_choice, format_id):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", desktop=DESKTOP_MODE)
 
 
 @app.route("/api/info", methods=["POST"])
 def get_info():
+    if not check_rate_limit(request.remote_addr):
+        return jsonify({"error": "Limite atingido. Tente novamente mais tarde."}), 429
+
     data = request.json
     url = data.get("url", "").strip()
     if not url:
@@ -306,6 +331,9 @@ def get_info():
 
 @app.route("/api/download", methods=["POST"])
 def start_download():
+    if not check_rate_limit(request.remote_addr):
+        return jsonify({"error": "Limite atingido. Tente novamente mais tarde."}), 429
+
     cleanup_expired_jobs()
     data = request.json
     url = data.get("url", "").strip()
