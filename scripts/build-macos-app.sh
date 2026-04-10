@@ -18,7 +18,10 @@ if [ -z "$FFMPEG_BIN" ] || [ -z "$FFPROBE_BIN" ]; then
     exit 1
 fi
 
-venv/bin/python -m pip install -r requirements-desktop.txt
+if ! venv/bin/python -c "import webview; import PyInstaller" 2>/dev/null; then
+    echo "Instalando dependencias desktop..."
+    venv/bin/python -m pip install -r requirements-desktop.txt
+fi
 
 venv/bin/python -m PyInstaller \
     --noconfirm \
