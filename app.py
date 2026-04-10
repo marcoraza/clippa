@@ -1,9 +1,12 @@
 import os
+import re
 import sys
+import time
 import uuid
 import glob
 import threading
 from pathlib import Path
+from urllib.parse import urlparse
 from flask import Flask, request, jsonify, send_file, render_template
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
@@ -51,6 +54,47 @@ app = Flask(
 )
 
 jobs = {}
+jobs_lock = threading.Lock()
+JOB_TTL = 3600
+
+
+def cleanup_expired_jobs():
+    now = time.time()
+    with jobs_lock:
+        expired = [jid for jid, j in jobs.items() if now - j.get("created", 0) > JOB_TTL]
+        for jid in expired:
+            job = jobs.pop(jid, None)
+            if job and job.get("file"):
+                try:
+                    os.remove(job["file"])
+                except OSError:
+                    pass
+
+
+def is_valid_url(url):
+    try:
+        parsed = urlparse(url)
+        return parsed.scheme in ("http", "https") and bool(parsed.hostname)
+    except Exception:
+        return False
+
+
+def make_progress_hook(job):
+    def hook(d):
+        if job.get("cancel") and job["cancel"].is_set():
+            raise CancelledError("Download cancelado")
+        if d["status"] == "downloading":
+            total = d.get("total_bytes") or d.get("total_bytes_estimate")
+            downloaded = d.get("downloaded_bytes", 0)
+            if total:
+                job["progress"] = round(downloaded / total * 100)
+        elif d["status"] == "finished":
+            job["progress_phase"] = "processing"
+    return hook
+
+
+class CancelledError(Exception):
+    pass
 
 
 class YtdlpLogger:
@@ -95,6 +139,7 @@ def run_download(job_id, url, format_choice, format_id):
     ydl_options.update({
         "logger": logger,
         "outtmpl": out_template,
+        "progress_hooks": [make_progress_hook(job)],
     })
 
     if format_choice == "audio":
@@ -119,6 +164,9 @@ def run_download(job_id, url, format_choice, format_id):
     try:
         with YoutubeDL(ydl_options) as ydl:
             ydl.download([url])
+
+        if job.get("cancel") and job["cancel"].is_set():
+            raise CancelledError("Download cancelado")
 
         files = glob.glob(os.path.join(DOWNLOAD_DIR, f"{job_id}.*"))
         if not files:
@@ -146,10 +194,20 @@ def run_download(job_id, url, format_choice, format_id):
         title = job.get("title", "").strip()
         # Sanitize title for filename
         if title:
-            safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()[:20].strip()
+            safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()
+            if len(safe_title) > 80:
+                safe_title = safe_title[:80].rsplit(" ", 1)[0].strip()
             job["filename"] = f"{safe_title}{ext}" if safe_title else os.path.basename(chosen)
         else:
             job["filename"] = os.path.basename(chosen)
+    except CancelledError:
+        job["status"] = "cancelled"
+        job["error"] = "Download cancelado"
+        for f in glob.glob(os.path.join(DOWNLOAD_DIR, f"{job_id}.*")):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
     except DownloadError as e:
         job["status"] = "error"
         job["error"] = logger.last_error or str(e)
@@ -169,6 +227,9 @@ def get_info():
     url = data.get("url", "").strip()
     if not url:
         return jsonify({"error": "No URL provided"}), 400
+
+    if not is_valid_url(url):
+        return jsonify({"error": "Invalid URL"}), 400
 
     logger = YtdlpLogger()
     ydl_options = build_ydl_options(timeout_seconds=60)
@@ -211,6 +272,7 @@ def get_info():
 
 @app.route("/api/download", methods=["POST"])
 def start_download():
+    cleanup_expired_jobs()
     data = request.json
     url = data.get("url", "").strip()
     format_choice = data.get("format", "video")
@@ -220,14 +282,41 @@ def start_download():
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
+    if not is_valid_url(url):
+        return jsonify({"error": "Invalid URL"}), 400
+
+    if format_id and not re.match(r"^[\w\-]+$", format_id):
+        return jsonify({"error": "Invalid format ID"}), 400
+
     job_id = uuid.uuid4().hex[:10]
-    jobs[job_id] = {"status": "downloading", "url": url, "title": title}
+    cancel_event = threading.Event()
+    with jobs_lock:
+        jobs[job_id] = {
+            "status": "downloading",
+            "url": url,
+            "title": title,
+            "created": time.time(),
+            "cancel": cancel_event,
+        }
 
     thread = threading.Thread(target=run_download, args=(job_id, url, format_choice, format_id))
     thread.daemon = True
     thread.start()
 
     return jsonify({"job_id": job_id})
+
+
+@app.route("/api/cancel/<job_id>", methods=["POST"])
+def cancel_download(job_id):
+    job = jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    if job["status"] != "downloading":
+        return jsonify({"error": "Job is not downloading"}), 400
+    cancel_event = job.get("cancel")
+    if cancel_event:
+        cancel_event.set()
+    return jsonify({"cancelled": True})
 
 
 @app.route("/api/status/<job_id>")
@@ -239,6 +328,8 @@ def check_status(job_id):
         "status": job["status"],
         "error": job.get("error"),
         "filename": job.get("filename"),
+        "progress": job.get("progress", 0),
+        "phase": job.get("progress_phase", "downloading"),
     })
 
 
@@ -257,6 +348,21 @@ def get_job_file(job_id):
         return None
 
     return {"file": job["file"], "filename": job["filename"]}
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src https://fonts.gstatic.com; "
+        "img-src * data:; "
+        "connect-src 'self'"
+    )
+    return response
 
 
 if __name__ == "__main__":

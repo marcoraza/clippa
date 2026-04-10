@@ -45,10 +45,10 @@ class DesktopApi:
     def save_download(self, job_id):
         payload = get_job_file(job_id)
         if not payload:
-            return {"saved": False, "error": "Arquivo nao encontrado"}
+            return {"saved": False, "error": "Arquivo não encontrado"}
 
         if self.window is None:
-            return {"saved": False, "error": "Janela desktop indisponivel"}
+            return {"saved": False, "error": "Janela desktop indisponível"}
 
         destination = self.window.create_file_dialog(
             webview.SAVE_DIALOG,
