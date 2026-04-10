@@ -157,6 +157,13 @@
       align-items: stretch;
     }
 
+    .inline-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
     .input-bar.expanded .inline-controls {
       display: none;
     }
@@ -545,7 +552,6 @@
   <div class="shell">
     <div class="brand">
       <div class="brand-name">Clippa</div>
-      <div class="brand-sub">media capture tool</div>
     </div>
 
     <div class="input-bar" id="inputBar">
@@ -556,7 +562,7 @@
             <button class="format-btn active" data-format="video" onclick="setFormat(this)">MP4</button>
             <button class="format-btn" data-format="audio" onclick="setFormat(this)">MP3</button>
           </div>
-          <button class="fetch-btn" id="goBtn" onclick="go()">Buscar</button>
+          <button class="fetch-btn" id="goBtn" onclick="go()">Download</button>
         </div>
       </div>
       <div class="expand-footer">
@@ -565,7 +571,7 @@
           <button class="format-btn" data-format="audio" onclick="setFormat(this)">MP3</button>
         </div>
         <span class="link-count" id="linkCount"></span>
-        <button class="fetch-btn" id="goBtnExpanded" onclick="go()">Buscar</button>
+        <button class="fetch-btn" id="goBtnExpanded" onclick="go()">Download</button>
       </div>
     </div>
 
@@ -661,7 +667,7 @@
 
       const btns = [document.getElementById('goBtn'), document.getElementById('goBtnExpanded')];
       const container = document.getElementById('cards');
-      btns.forEach(b => { b.disabled = true; b.textContent = 'Buscando...'; });
+      btns.forEach(b => { b.disabled = true; b.textContent = '...'; });
       container.innerHTML = '';
       cardData = [];
 
@@ -671,7 +677,7 @@
         cardData.push({ url, status: 'loading' });
         renderCard(idx);
 
-        btns.forEach(b => { b.textContent = urls.length > 1 ? `Buscando ${i + 1}/${urls.length}...` : 'Buscando...'; });
+        btns.forEach(b => { b.textContent = urls.length > 1 ? `${i + 1}/${urls.length}...` : '...'; });
 
         try {
           const res = await fetch('/api/info', {
@@ -704,7 +710,7 @@
         renderDownloadAll();
       }
 
-      btns.forEach(b => { b.disabled = false; b.textContent = 'Buscar'; });
+      btns.forEach(b => { b.disabled = false; b.textContent = 'Download'; });
     }
 
     function renderCard(idx) {
