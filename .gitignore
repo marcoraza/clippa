@@ -15,3 +15,4 @@ logs/
 assets/icon-work/
 assets/clippa.iconset/
 .pytest_cache/
+claude-scripts/

@@ -1,3 +1,19 @@
+import sys
+import multiprocessing
+
+# torch pulls in multiprocessing; in a frozen app its helper processes re-exec
+# this binary. freeze_support() lets those children run their own logic and exit
+# here, before they ever reach the GUI or the worker dispatch below.
+multiprocessing.freeze_support()
+
+# Worker mode: run one separation and exit before importing any GUI. We key off an
+# explicit argv flag (not an env var) so multiprocessing's own re-execs, which
+# inherit the environment but not this flag, can never be mistaken for a job.
+if len(sys.argv) > 1 and sys.argv[1] == "--clippa-separate":
+    import separate_worker
+
+    sys.exit(separate_worker.main(sys.argv[2:]))
+
 import socket
 import threading
 

@@ -397,6 +397,7 @@
 
     .card-dl-btn,
     .q-chip,
+    .stem-btn,
     .dl-all-btn {
       border: none;
       border-radius: var(--radius-sm);
@@ -441,6 +442,17 @@
     .q-chip:hover:not(.active) {
       border-color: var(--border-hover);
       color: rgba(255,255,255,0.5);
+    }
+
+    .stem-btn {
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .stem-btn:hover {
+      border-color: var(--border-hover);
+      color: var(--text);
     }
 
     .card.card-error {
@@ -498,6 +510,41 @@
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
       vertical-align: middle;
+    }
+
+    .card-progress {
+      flex: 1 0 100%;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 4px;
+      margin-top: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+      transition: width 0.3s ease;
+    }
+
+    .done-list {
+      flex: 1 0 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     @keyframes spin {
@@ -599,7 +646,7 @@
 
     <div class="input-bar" id="inputBar">
       <div class="input-row">
-        <textarea id="urls" placeholder="Cole um link..." rows="1" aria-label="URLs para download" autocomplete="off" spellcheck="false"></textarea>
+        <textarea id="urls" placeholder="Cole um link..." rows="1" wrap="off" aria-label="URLs para download" autocomplete="off" spellcheck="false"></textarea>
         <div class="inline-controls">
           <div class="format-toggle" role="group" aria-label="Formato">
             <button class="format-btn active" data-format="video" aria-pressed="true" onclick="setFormat(this)">MP4</button>
@@ -638,6 +685,7 @@
 
   <script>
     const DESKTOP_MODE = {{ 'true' if desktop else 'false' }};
+    const STEMS_ENABLED = {{ 'true' if stems_enabled else 'false' }};
     let currentFormat = 'video';
     let cardData = [];
     const urlsEl = document.getElementById('urls');
@@ -705,7 +753,8 @@
     }
 
     urlsEl.addEventListener('input', updateInputBar);
-    urlsEl.addEventListener('paste', () => setTimeout(updateInputBar, 0));
+    urlsEl.addEventListener('paste', () => setTimeout(() => { updateInputBar(); urlsEl.scrollLeft = 0; }, 0));
+    urlsEl.addEventListener('blur', () => { urlsEl.scrollLeft = 0; });
 
     urlsEl.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); }
@@ -714,6 +763,7 @@
     async function go() {
       const urls = parseUrls(urlsEl.value);
       if (!urls.length) return;
+      urlsEl.scrollLeft = 0;
 
       const btns = [document.getElementById('goBtn'), document.getElementById('goBtnExpanded')];
       const container = document.getElementById('cards');
@@ -821,20 +871,32 @@
         ).join('');
       }
 
+      const checkSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>`;
+      let doneList = '';
+      if (c.results && c.results.length) {
+        doneList = `<div class="done-list">` + c.results.map(r =>
+          `<span class="done-quiet">${checkSvg} ${esc(r.filename)}</span>`
+        ).join('') + `</div>`;
+      }
+
       let actionHtml = '';
       if (c.status === 'ready') {
-        actionHtml = `<button class="card-dl-btn" onclick="dlCard(${idx})">Baixar</button>${qualityChips}`;
+        let stemBtns = '';
+        if (isAudio && STEMS_ENABLED) {
+          stemBtns = `<button class="stem-btn" onclick="dlCard(${idx}, 'instrumental')">Instrumental</button><button class="stem-btn" onclick="dlCard(${idx}, 'vocals')">Vocal</button>`;
+        }
+        const fullLabel = (c.results && c.results.length) ? 'Faixa completa' : 'Baixar';
+        actionHtml = `${doneList}<div class="action-row"><button class="card-dl-btn" onclick="dlCard(${idx})">${fullLabel}</button>${stemBtns}${qualityChips}</div>`;
       } else if (c.status === 'downloading') {
-        const pct = c.progress ? ` ${c.progress}%` : '';
-        actionHtml = `<span class="card-status downloading"><span class="spin"></span> Baixando...${pct}</span>`;
-      } else if (c.status === 'done') {
-        const name = c.filename || '';
-        actionHtml = `<span class="card-status done-quiet">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
-          ${esc(name)}</span>`;
+        const pct = c.progress || 0;
+        const label = c.phase === 'separating' ? 'Separando áudio' : 'Baixando';
+        actionHtml = `${doneList}<div class="card-progress">
+          <span class="card-status downloading"><span class="spin"></span> ${label}... ${pct}%</span>
+          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        </div>`;
       } else if (c.status === 'error') {
-        actionHtml = `<button class="card-dl-btn error" onclick="dlCard(${idx})">Tentar de novo</button>
-          <span class="card-status error">${esc(friendlyError(c.error || 'Falha no download'))}</span>`;
+        actionHtml = `${doneList}<div class="action-row"><button class="card-dl-btn error" onclick="dlCard(${idx})">Tentar de novo</button>
+          <span class="card-status error">${esc(friendlyError(c.error || 'Falha no download'))}</span></div>`;
       }
 
       el.innerHTML = `
@@ -863,11 +925,12 @@
       renderCard(idx);
     }
 
-    async function dlCard(idx) {
+    async function dlCard(idx, stem) {
       const c = cardData[idx];
       c.status = 'downloading';
       c.error = null;
       c.progress = 0;
+      c.phase = null;
       renderCard(idx);
 
       try {
@@ -879,6 +942,8 @@
             format: currentFormat,
             format_id: c.selectedFormatId,
             title: c.title || '',
+            uploader: c.uploader || '',
+            stem: stem || null,
           }),
         });
         const data = await res.json();
@@ -906,11 +971,13 @@
             const data = await res.json();
             if (data.status === 'done') {
               clearInterval(iv);
-              c.status = 'done';
-              c.filename = data.filename;
-              c.savedPath = data.saved_path || '';
-              renderCard(idx);
+              c.results = c.results || [];
+              c.results.push({ filename: data.filename, savedPath: data.saved_path || '' });
               if (!DESKTOP_MODE) triggerBrowserDownload(idx);
+              c.status = 'ready';
+              c.progress = 0;
+              c.phase = null;
+              renderCard(idx);
               resolve();
             } else if (data.status === 'error') {
               clearInterval(iv);
@@ -918,9 +985,11 @@
               c.error = data.error;
               renderCard(idx);
               resolve();
-            } else if (data.progress) {
-              c.progress = data.progress;
-              renderCard(idx);
+            } else {
+              let changed = false;
+              if (data.phase && data.phase !== c.phase) { c.phase = data.phase; changed = true; }
+              if (data.progress && data.progress !== c.progress) { c.progress = data.progress; changed = true; }
+              if (changed) renderCard(idx);
             }
           } catch {
             clearInterval(iv);
@@ -936,9 +1005,10 @@
     function triggerBrowserDownload(idx) {
       const c = cardData[idx];
       if (!c.jobId) return;
+      const last = c.results && c.results.length ? c.results[c.results.length - 1] : null;
       const a = document.createElement('a');
       a.href = `/api/file/${c.jobId}`;
-      a.download = c.filename || '';
+      a.download = (last && last.filename) || '';
       a.click();
     }
 

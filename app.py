@@ -13,6 +13,8 @@ from flask import Flask, request, jsonify, send_file, render_template
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
+import separation
+
 
 def get_resource_dir():
     if getattr(sys, "frozen", False):
@@ -170,7 +172,53 @@ def copy_to_downloads(src, filename):
         return None
 
 
-def run_download(job_id, url, format_choice, format_id):
+STEM_FILENAME_LABEL = {"vocals": " (Vocal)", "instrumental": " (Instrumental)"}
+
+# Strips the boilerplate YouTube stamps from a title without touching the song
+# name itself. Only parenthesised/bracketed groups whose content is a known noise
+# token are removed, so things like "(feat. X)", "(Live)" or a band name in
+# brackets survive untouched.
+_TITLE_NOISE = re.compile(
+    r"""\s*[\(\[]\s*(?:
+        official(?:\s+\w+){0,3}
+        | (?:full\s+)?(?:hd|hq|4k|8k|uhd)
+        | \d+k\s+remaster(?:ed)?
+        | remaster(?:ed)?(?:\s+\d{4})?
+        | lyrics?(?:\s+video)?
+        | visuali[sz]er
+        | audio
+        | video
+        | m/?v
+        | explicit
+        | clean\s+version
+    )\s*[\)\]]""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def clean_title(title):
+    cleaned = _TITLE_NOISE.sub("", title)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" -|")
+    return cleaned.strip() or title
+
+
+def clean_uploader(name):
+    # YouTube Music auto-channels come through as "Artist - Topic"; strip the
+    # boilerplate so the artist name is usable in the filename.
+    name = re.sub(r"\s*-\s*topic\s*$", "", name, flags=re.IGNORECASE)
+    name = re.sub(r"\s*vevo\s*$", "", name, flags=re.IGNORECASE)
+    return name.strip()
+
+
+def build_basename(uploader, title):
+    # "Artist - Title" when the artist isn't already part of the title, else just
+    # the title (avoids "Infinity Ink - Infinity Ink - Games").
+    if uploader and title and uploader.lower() not in title.lower():
+        return f"{uploader} - {title}"
+    return title or uploader
+
+
+def run_download(job_id, url, format_choice, format_id, stem=None):
     job = jobs[job_id]
     out_template = os.path.join(DOWNLOAD_DIR, f"{job_id}.%(ext)s")
     logger = YtdlpLogger()
@@ -235,15 +283,42 @@ def run_download(job_id, url, format_choice, format_id):
                 except OSError:
                     pass
 
+        if format_choice == "audio" and stem:
+            job["progress_phase"] = "separating"
+            job["progress"] = 0
+            model_dir = separation.get_model_dir(DOWNLOAD_DIR)
+            try:
+                stem_file = separation.separate_subprocess(
+                    chosen, stem, DOWNLOAD_DIR, model_dir,
+                    ffmpeg_dir=FFMPEG_LOCATION,
+                    cancel_check=lambda: bool(job.get("cancel") and job["cancel"].is_set()),
+                    progress_cb=lambda p: job.__setitem__("progress", p),
+                )
+            except separation.SeparationCancelled:
+                raise CancelledError("Download cancelado")
+            final = os.path.join(DOWNLOAD_DIR, f"{job_id}.mp3")
+            try:
+                os.remove(chosen)
+            except OSError:
+                pass
+            if os.path.abspath(stem_file) != os.path.abspath(final):
+                if os.path.exists(final):
+                    os.remove(final)
+                os.rename(stem_file, final)
+            chosen = final
+
         job["status"] = "done"
         job["file"] = chosen
         ext = os.path.splitext(chosen)[1]
-        title = job.get("title", "").strip()
-        if title:
-            safe_title = "".join(c for c in title if c not in r'\/:*?"<>|').strip()
-            if len(safe_title) > 80:
-                safe_title = safe_title[:80].rsplit(" ", 1)[0].strip()
-            job["filename"] = f"{safe_title}{ext}" if safe_title else os.path.basename(chosen)
+        stem_label = STEM_FILENAME_LABEL.get(stem, "") if format_choice == "audio" else ""
+        title = clean_title(job.get("title", "").strip())
+        uploader = clean_uploader(job.get("uploader", "").strip())
+        base = build_basename(uploader, title)
+        if base:
+            safe = "".join(c for c in base if c not in r'\/:*?"<>|').strip()
+            if len(safe) > 90:
+                safe = safe[:90].rsplit(" ", 1)[0].strip()
+            job["filename"] = f"{safe}{stem_label}{ext}" if safe else os.path.basename(chosen)
         else:
             job["filename"] = os.path.basename(chosen)
 
@@ -269,7 +344,8 @@ def run_download(job_id, url, format_choice, format_id):
 
 @app.route("/")
 def index():
-    return render_template("index.html", desktop=DESKTOP_MODE)
+    stems_enabled = DESKTOP_MODE and separation.is_available()
+    return render_template("index.html", desktop=DESKTOP_MODE, stems_enabled=stems_enabled)
 
 
 @app.route("/api/info", methods=["POST"])
@@ -340,6 +416,8 @@ def start_download():
     format_choice = data.get("format", "video")
     format_id = data.get("format_id")
     title = data.get("title", "")
+    uploader = data.get("uploader", "")
+    stem = data.get("stem") or None
 
     if not url:
         return jsonify({"error": "No URL provided"}), 400
@@ -350,6 +428,12 @@ def start_download():
     if format_id and not re.match(r"^[\w\-]+$", format_id):
         return jsonify({"error": "Invalid format ID"}), 400
 
+    if stem not in (None, "vocals", "instrumental"):
+        return jsonify({"error": "Invalid stem"}), 400
+
+    if stem and not separation.is_available():
+        return jsonify({"error": "Separação de áudio indisponível"}), 400
+
     job_id = uuid.uuid4().hex[:10]
     cancel_event = threading.Event()
     with jobs_lock:
@@ -357,11 +441,12 @@ def start_download():
             "status": "downloading",
             "url": url,
             "title": title,
+            "uploader": uploader,
             "created": time.time(),
             "cancel": cancel_event,
         }
 
-    thread = threading.Thread(target=run_download, args=(job_id, url, format_choice, format_id))
+    thread = threading.Thread(target=run_download, args=(job_id, url, format_choice, format_id, stem))
     thread.daemon = True
     thread.start()
 
